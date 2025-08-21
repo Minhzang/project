@@ -6,10 +6,10 @@ Simple web app for students to track income and expenses. Built with HTML, CSS a
 - Register / login / password reset (local simulation)
 - Add, edit, delete transactions (income & expense)
 - Categories: Food, Transport, Study, Entertainment, Health, Shopping
-- Filters by text, date and category
+- Quick search by description, category, or date from the header
 - Balance and budget with alert when exceeded
-- Pie chart by category and bar chart over time using Chart.js
-- Export / import data as JSON
+- Pie chart for personal spending categories using Chart.js (shows after adding transactions)
+- Export and import transactions via Excel files (importing replaces existing transactions)
 - Light and dark modes
 
 ## Usage
