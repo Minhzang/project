@@ -1,24 +1,27 @@
 // Simple Student Expense Manager
 const users = JSON.parse(localStorage.getItem('users') || '[]');
 let currentUser = sessionStorage.getItem('currentUser');
+const defaultCategories=['Ăn uống','Đi lại','Học tập','Giải trí','Sức khỏe','Mua sắm'];
 
 function saveUsers(){localStorage.setItem('users', JSON.stringify(users));}
 function hash(p){return btoa(p);}
+function formatVND(amount){return amount.toLocaleString('vi-VN',{style:'currency',currency:'VND'});}
 
 // UI helpers
 const authSection = document.getElementById('auth-section');
 const appSection = document.getElementById('app');
-
+const budgetWarning = document.getElementById('budget-warning');
 function showApp(){authSection.classList.add('hidden');appSection.classList.remove('hidden');render();}
 function showAuth(){authSection.classList.remove('hidden');appSection.classList.add('hidden');}
 
 // Registration
  document.getElementById('register-form').addEventListener('submit',e=>{
   e.preventDefault();
+  const name = document.getElementById('register-name').value;
   const email = document.getElementById('register-email').value;
   const password = hash(document.getElementById('register-password').value);
   if(users.find(u=>u.email===email)){alert('Tài khoản đã tồn tại');return;}
-  users.push({email,password,budget:0,transactions:[]});
+  users.push({name,email,password,budget:0,transactions:[],categories:[...defaultCategories]});
   saveUsers();
   alert('Đăng ký thành công, vui lòng đăng nhập');
   document.getElementById('register').classList.add('hidden');
@@ -39,6 +42,26 @@ document.getElementById('show-reset').onclick=()=>document.getElementById('reset
   showApp();
 });
 
+// Google Login
+window.handleCredentialResponse = response => {
+ console.log('JWT ID token: ' + response.credential);
+ const resEl = document.getElementById('result');
+ if(resEl) resEl.innerText = response.credential;
+
+ const data = JSON.parse(atob(response.credential.split('.')[1]));
+ const email = data.email;
+ const name = data.name || '';
+ let user = users.find(u => u.email === email);
+ if (!user) {
+  user = { name, email, password: null, budget: 0, transactions: [], categories:[...defaultCategories] };
+  users.push(user);
+  saveUsers();
+ }
+ currentUser = email;
+ sessionStorage.setItem('currentUser', email);
+ showApp();
+};
+
 // Password reset (simple)
 document.getElementById('reset-form').addEventListener('submit',e=>{
  e.preventDefault();
@@ -53,10 +76,21 @@ document.getElementById('reset-form').addEventListener('submit',e=>{
 });
 
 // Logout
- document.getElementById('logout').onclick=()=>{sessionStorage.removeItem('currentUser');currentUser=null;showAuth();};
+// Account link handled via separate page
 
 // Theme
 document.getElementById('toggle-theme').onclick=()=>{document.body.classList.toggle('dark');};
+
+function populateCategories(user){
+ if(!user){return;}
+ if(!user.categories){user.categories=[...defaultCategories];}
+ user.transactions.forEach(t=>{if(!user.categories.includes(t.category)) user.categories.push(t.category);});
+ saveUsers();
+ const cat=document.getElementById('category');
+ const filter=document.getElementById('filter-category');
+ cat.innerHTML=user.categories.map(c=>`<option>${c}</option>`).join('');
+ filter.innerHTML=`<option value="">Tất cả danh mục</option>`+user.categories.map(c=>`<option>${c}</option>`).join('');
+}
 
 // Add transaction
 let editId=null;
@@ -80,6 +114,22 @@ let editId=null;
  render();
  e.target.reset();
 });
+
+document.getElementById('add-category-btn').onclick=()=>{
+ const input=document.getElementById('new-category');
+ const catName=input.value.trim();
+ if(!catName)return;
+ const user=users.find(u=>u.email===currentUser);
+ if(!user) return;
+ if(!user.categories) user.categories=[...defaultCategories];
+ if(!user.categories.includes(catName)){
+  user.categories.push(catName);
+  saveUsers();
+ }
+ populateCategories(user);
+ document.getElementById('category').value=catName;
+ input.value='';
+};
 
 // Filters
 ['search','filter-date','filter-category'].forEach(id=>document.getElementById(id).addEventListener('input',render));
@@ -115,7 +165,8 @@ document.getElementById('import-file').addEventListener('change',e=>{
 function render(){
  if(!currentUser)return;
  const user=users.find(u=>u.email===currentUser);
- document.getElementById('budget-display').textContent=user.budget;
+ populateCategories(user);
+ document.getElementById('budget-display').textContent=formatVND(user.budget);
  const tbody=document.getElementById('transaction-table');
  tbody.innerHTML='';
  const search=document.getElementById('search').value.toLowerCase();
@@ -130,11 +181,17 @@ function render(){
   .forEach(t=>{
    if(t.type==='income') balance+=t.amount; else {balance-=t.amount;expenses+=t.amount;}
    const tr=document.createElement('tr');
-  tr.innerHTML=`<td>${t.date}</td><td>${t.description}</td><td>${t.category}</td><td>${t.type==='income'?'+':'-'}${t.amount}</td><td><button data-id="${t.id}" class="edit">Sửa</button><button data-id="${t.id}" class="del">Xóa</button></td>`;
+  tr.innerHTML=`<td>${t.date}</td><td>${t.description}</td><td>${t.category}</td><td>${t.type==='income'?'+':'-'}${formatVND(t.amount)}</td><td><button data-id="${t.id}" class="edit">Sửa</button><button data-id="${t.id}" class="del">Xóa</button></td>`;
    tbody.appendChild(tr);
   });
- document.getElementById('balance').textContent=balance.toFixed(2);
- if(user.budget && expenses>user.budget) alert('Vượt quá ngân sách!');
+ document.getElementById('balance').textContent=formatVND(balance);
+ if(user.budget && expenses>user.budget){
+  budgetWarning.textContent='Cảnh báo: đã vượt quá ngân sách!';
+  budgetWarning.classList.remove('hidden');
+ }else{
+  budgetWarning.classList.add('hidden');
+  budgetWarning.textContent='';
+ }
 
  tbody.querySelectorAll('.del').forEach(btn=>btn.onclick=e=>{
   const id=Number(e.target.dataset.id);
@@ -169,8 +226,8 @@ function updateCharts(data){
  const timeValues=timeLabels.map(l=>byTime[l]);
  if(categoryChart) categoryChart.destroy();
  if(timeChart) timeChart.destroy();
- categoryChart=new Chart(ctx1,{type:'pie',data:{labels:catLabels,datasets:[{data:catValues,backgroundColor:['#667eea','#764ba2','#ffc107','#28a745','#dc3545','#17a2b8']} ]}});
- timeChart=new Chart(ctx2,{type:'bar',data:{labels:timeLabels,datasets:[{label:'Số dư',data:timeValues,backgroundColor:'#667eea'}]}});
+ categoryChart=new Chart(ctx1,{type:'pie',data:{labels:catLabels,datasets:[{data:catValues,backgroundColor:['#667eea','#764ba2','#ffc107','#28a745','#dc3545','#17a2b8']} ]},options:{plugins:{tooltip:{callbacks:{label:ctx=>ctx.label+': '+formatVND(ctx.parsed)}}}}});
+ timeChart=new Chart(ctx2,{type:'bar',data:{labels:timeLabels,datasets:[{label:'Số dư',data:timeValues,backgroundColor:'#667eea'}]},options:{plugins:{tooltip:{callbacks:{label:ctx=>formatVND(ctx.parsed.y)}}},scales:{y:{ticks:{callback:value=>formatVND(value)}}}}});
 }
 
 // Auto login

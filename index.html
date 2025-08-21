@@ -6,6 +6,7 @@
   <title>Quản lý Chi tiêu Sinh viên</title>
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
   <div id="auth-section" class="card">
@@ -20,9 +21,17 @@
       <a href="#" id="show-reset">Quên mật khẩu?</a>
     </p>
 
+    <div id="g_id_onload"
+         data-client_id="YOUR_CLIENT_ID.apps.googleusercontent.com"
+         data-callback="handleCredentialResponse"></div>
+    <div class="g_id_signin" data-type="standard"></div>
+    <p>Kết quả token:</p>
+    <div id="result"></div>
+
     <div id="register" class="hidden">
       <h3>Đăng ký</h3>
       <form id="register-form">
+        <input type="text" id="register-name" placeholder="Họ tên" required />
         <input type="email" id="register-email" placeholder="Email" required />
         <input type="password" id="register-password" placeholder="Mật khẩu" required />
         <button type="submit">Tạo tài khoản</button>
@@ -41,14 +50,19 @@
   <div id="app" class="hidden">
     <header>
       <h1>Bảng điều khiển chi tiêu</h1>
-      <button id="logout">Đăng xuất</button>
-      <button id="toggle-theme">🌙</button>
+      <div class="header-controls">
+        <button id="toggle-theme">🌙</button>
+        <a href="account.html" id="account-link">Tài khoản</a>
+      </div>
     </header>
 
     <section id="stats">
-      <div class="card"><h3>Số dư: <span id="balance">0</span></h3></div>
-      <div class="card"><h3>Ngân sách: <span id="budget-display">0</span></h3>
-      <button id="set-budget-btn">Đặt ngân sách</button></div>
+      <div class="card"><h3>Số dư: <span id="balance">0 ₫</span></h3></div>
+      <div class="card">
+        <h3>Ngân sách: <span id="budget-display">0 ₫</span></h3>
+        <button id="set-budget-btn">Đặt ngân sách</button>
+        <p id="budget-warning" class="warning hidden"></p>
+      </div>
     </section>
 
     <section id="transaction-form" class="card">
@@ -61,14 +75,11 @@
         <input type="number" id="amount" placeholder="Số tiền" required />
         <input type="text" id="description" placeholder="Mô tả" required />
         <input type="date" id="date" required />
-        <select id="category">
-          <option>Ăn uống</option>
-          <option>Đi lại</option>
-          <option>Học tập</option>
-          <option>Giải trí</option>
-          <option>Sức khỏe</option>
-          <option>Mua sắm</option>
-        </select>
+        <select id="category"></select>
+        <div class="new-category">
+          <input type="text" id="new-category" placeholder="Danh mục mới" />
+          <button type="button" id="add-category-btn">Thêm danh mục</button>
+        </div>
         <button type="submit">Thêm</button>
       </form>
     </section>
@@ -79,12 +90,6 @@
       <input type="date" id="filter-date" />
       <select id="filter-category">
         <option value="">Tất cả danh mục</option>
-        <option>Ăn uống</option>
-        <option>Đi lại</option>
-        <option>Học tập</option>
-        <option>Giải trí</option>
-        <option>Sức khỏe</option>
-        <option>Mua sắm</option>
       </select>
     </section>
 
