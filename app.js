@@ -8,17 +8,22 @@ function hash(p){return btoa(p);}
 // UI helpers
 const authSection = document.getElementById('auth-section');
 const appSection = document.getElementById('app');
+const budgetWarning = document.getElementById('budget-warning');
+const accountDropdown = document.getElementById('account-dropdown');
+const accountName = document.getElementById('account-name');
+const accountEmail = document.getElementById('account-email');
 
-function showApp(){authSection.classList.add('hidden');appSection.classList.remove('hidden');render();}
-function showAuth(){authSection.classList.remove('hidden');appSection.classList.add('hidden');}
+function showApp(){authSection.classList.add('hidden');appSection.classList.remove('hidden');render();accountDropdown.classList.add('hidden');}
+function showAuth(){authSection.classList.remove('hidden');appSection.classList.add('hidden');accountDropdown.classList.add('hidden');}
 
 // Registration
  document.getElementById('register-form').addEventListener('submit',e=>{
   e.preventDefault();
+  const name = document.getElementById('register-name').value;
   const email = document.getElementById('register-email').value;
   const password = hash(document.getElementById('register-password').value);
   if(users.find(u=>u.email===email)){alert('Tài khoản đã tồn tại');return;}
-  users.push({email,password,budget:0,transactions:[]});
+  users.push({name,email,password,budget:0,transactions:[]});
   saveUsers();
   alert('Đăng ký thành công, vui lòng đăng nhập');
   document.getElementById('register').classList.add('hidden');
@@ -39,6 +44,21 @@ document.getElementById('show-reset').onclick=()=>document.getElementById('reset
   showApp();
 });
 
+// Google Login
+window.handleCredentialResponse=response=>{
+ const data=JSON.parse(atob(response.credential.split('.')[1]));
+ const email=data.email;
+ const name=data.name||'';
+ let user=users.find(u=>u.email===email);
+ if(!user){
+  user={name,email,password:null,budget:0,transactions:[]};
+  users.push(user);saveUsers();
+ }
+ currentUser=email;
+ sessionStorage.setItem('currentUser',email);
+ showApp();
+};
+
 // Password reset (simple)
 document.getElementById('reset-form').addEventListener('submit',e=>{
  e.preventDefault();
@@ -53,7 +73,21 @@ document.getElementById('reset-form').addEventListener('submit',e=>{
 });
 
 // Logout
- document.getElementById('logout').onclick=()=>{sessionStorage.removeItem('currentUser');currentUser=null;showAuth();};
+document.getElementById('account-btn').onclick=()=>accountDropdown.classList.toggle('hidden');
+document.getElementById('account-forgot').onclick=()=>{
+ accountDropdown.classList.add('hidden');
+ showAuth();
+ document.getElementById('reset').classList.remove('hidden');
+ document.getElementById('reset-email').value=currentUser||'';
+};
+
+document.getElementById('logout').onclick=()=>{
+ accountDropdown.classList.add('hidden');
+ sessionStorage.removeItem('currentUser');
+ currentUser=null;
+ if(window.google&&google.accounts&&google.accounts.id){google.accounts.id.disableAutoSelect();}
+ showAuth();
+};
 
 // Theme
 document.getElementById('toggle-theme').onclick=()=>{document.body.classList.toggle('dark');};
@@ -115,6 +149,8 @@ document.getElementById('import-file').addEventListener('change',e=>{
 function render(){
  if(!currentUser)return;
  const user=users.find(u=>u.email===currentUser);
+ accountName.textContent='Họ tên: '+(user.name||'');
+ accountEmail.textContent='Email: '+user.email;
  document.getElementById('budget-display').textContent=user.budget;
  const tbody=document.getElementById('transaction-table');
  tbody.innerHTML='';
@@ -134,7 +170,13 @@ function render(){
    tbody.appendChild(tr);
   });
  document.getElementById('balance').textContent=balance.toFixed(2);
- if(user.budget && expenses>user.budget) alert('Vượt quá ngân sách!');
+ if(user.budget && expenses>user.budget){
+  budgetWarning.textContent='Cảnh báo: đã vượt quá ngân sách!';
+  budgetWarning.classList.remove('hidden');
+ }else{
+  budgetWarning.classList.add('hidden');
+  budgetWarning.textContent='';
+ }
 
  tbody.querySelectorAll('.del').forEach(btn=>btn.onclick=e=>{
   const id=Number(e.target.dataset.id);

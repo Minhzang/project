@@ -6,6 +6,7 @@
   <title>Quản lý Chi tiêu Sinh viên</title>
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
   <div id="auth-section" class="card">
@@ -20,9 +21,15 @@
       <a href="#" id="show-reset">Quên mật khẩu?</a>
     </p>
 
+    <div id="g_id_onload"
+         data-client_id="YOUR_GOOGLE_CLIENT_ID"
+         data-callback="handleCredentialResponse"></div>
+    <div class="g_id_signin" data-type="standard"></div>
+
     <div id="register" class="hidden">
       <h3>Đăng ký</h3>
       <form id="register-form">
+        <input type="text" id="register-name" placeholder="Họ tên" required />
         <input type="email" id="register-email" placeholder="Email" required />
         <input type="password" id="register-password" placeholder="Mật khẩu" required />
         <button type="submit">Tạo tài khoản</button>
@@ -41,14 +48,27 @@
   <div id="app" class="hidden">
     <header>
       <h1>Bảng điều khiển chi tiêu</h1>
-      <button id="logout">Đăng xuất</button>
-      <button id="toggle-theme">🌙</button>
+      <div class="header-controls">
+        <button id="toggle-theme">🌙</button>
+        <div class="account">
+          <button id="account-btn">Tài khoản</button>
+          <div id="account-dropdown" class="hidden">
+            <p id="account-name"></p>
+            <p id="account-email"></p>
+            <a href="#" id="account-forgot">Quên mật khẩu?</a>
+            <button id="logout">Đăng xuất</button>
+          </div>
+        </div>
+      </div>
     </header>
 
     <section id="stats">
       <div class="card"><h3>Số dư: <span id="balance">0</span></h3></div>
-      <div class="card"><h3>Ngân sách: <span id="budget-display">0</span></h3>
-      <button id="set-budget-btn">Đặt ngân sách</button></div>
+      <div class="card">
+        <h3>Ngân sách: <span id="budget-display">0</span></h3>
+        <button id="set-budget-btn">Đặt ngân sách</button>
+        <p id="budget-warning" class="warning hidden"></p>
+      </div>
     </section>
 
     <section id="transaction-form" class="card">
