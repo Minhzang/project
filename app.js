@@ -1,24 +1,28 @@
 // Simple Student Expense Manager
 const users = JSON.parse(localStorage.getItem('users') || '[]');
 let currentUser = sessionStorage.getItem('currentUser');
+const defaultCategories=['Ăn uống','Đi lại','Học tập','Giải trí','Sức khỏe','Mua sắm'];
+let expenseChart;
 
 function saveUsers(){localStorage.setItem('users', JSON.stringify(users));}
 function hash(p){return btoa(p);}
+function formatVND(amount){return amount.toLocaleString('vi-VN',{style:'currency',currency:'VND'});}
 
 // UI helpers
 const authSection = document.getElementById('auth-section');
 const appSection = document.getElementById('app');
-
-function showApp(){authSection.classList.add('hidden');appSection.classList.remove('hidden');render();}
+const budgetWarning = document.getElementById('budget-warning');
+function showApp(){authSection.classList.add('hidden');appSection.classList.remove('hidden');render();renderExpenseChart();}
 function showAuth(){authSection.classList.remove('hidden');appSection.classList.add('hidden');}
 
 // Registration
  document.getElementById('register-form').addEventListener('submit',e=>{
   e.preventDefault();
+  const name = document.getElementById('register-name').value;
   const email = document.getElementById('register-email').value;
   const password = hash(document.getElementById('register-password').value);
   if(users.find(u=>u.email===email)){alert('Tài khoản đã tồn tại');return;}
-  users.push({email,password,budget:0,transactions:[]});
+  users.push({name,email,password,budget:0,transactions:[],categories:[...defaultCategories]});
   saveUsers();
   alert('Đăng ký thành công, vui lòng đăng nhập');
   document.getElementById('register').classList.add('hidden');
@@ -39,6 +43,7 @@ document.getElementById('show-reset').onclick=()=>document.getElementById('reset
   showApp();
 });
 
+
 // Password reset (simple)
 document.getElementById('reset-form').addEventListener('submit',e=>{
  e.preventDefault();
@@ -53,10 +58,23 @@ document.getElementById('reset-form').addEventListener('submit',e=>{
 });
 
 // Logout
- document.getElementById('logout').onclick=()=>{sessionStorage.removeItem('currentUser');currentUser=null;showAuth();};
+// Account link handled via separate page
 
 // Theme
 document.getElementById('toggle-theme').onclick=()=>{document.body.classList.toggle('dark');};
+
+function populateCategories(user){
+ if(!user){return;}
+ if(!user.categories){user.categories=[...defaultCategories];}
+ user.transactions.forEach(t=>{if(!user.categories.includes(t.category)) user.categories.push(t.category);});
+ saveUsers();
+ const cat=document.getElementById('category');
+ const filter=document.getElementById('filter-category');
+ const del=document.getElementById('delete-category');
+ cat.innerHTML=user.categories.map(c=>`<option>${c}</option>`).join('');
+ filter.innerHTML=`<option value="">Tất cả danh mục</option>`+user.categories.map(c=>`<option>${c}</option>`).join('');
+ if(del) del.innerHTML=user.categories.map(c=>`<option>${c}</option>`).join('');
+}
 
 // Add transaction
 let editId=null;
@@ -80,6 +98,35 @@ let editId=null;
  render();
  e.target.reset();
 });
+
+document.getElementById('add-category-btn').onclick=()=>{
+ const input=document.getElementById('new-category');
+ const catName=input.value.trim();
+ if(!catName)return;
+ const user=users.find(u=>u.email===currentUser);
+ if(!user) return;
+ if(!user.categories) user.categories=[...defaultCategories];
+ if(!user.categories.includes(catName)){
+  user.categories.push(catName);
+  saveUsers();
+ }
+ populateCategories(user);
+ document.getElementById('category').value=catName;
+ input.value='';
+};
+
+document.getElementById('delete-category-btn').onclick=()=>{
+ const select=document.getElementById('delete-category');
+ const catName=select.value;
+ if(!catName) return;
+ const user=users.find(u=>u.email===currentUser);
+ if(!user) return;
+ if(!confirm(`Xóa danh mục "${catName}" và các giao dịch liên quan?`)) return;
+ user.categories=user.categories.filter(c=>c!==catName);
+ user.transactions=user.transactions.filter(t=>t.category!==catName);
+ saveUsers();
+ render();
+};
 
 // Filters
 ['search','filter-date','filter-category'].forEach(id=>document.getElementById(id).addEventListener('input',render));
@@ -115,7 +162,8 @@ document.getElementById('import-file').addEventListener('change',e=>{
 function render(){
  if(!currentUser)return;
  const user=users.find(u=>u.email===currentUser);
- document.getElementById('budget-display').textContent=user.budget;
+ populateCategories(user);
+ document.getElementById('budget-display').textContent=formatVND(user.budget);
  const tbody=document.getElementById('transaction-table');
  tbody.innerHTML='';
  const search=document.getElementById('search').value.toLowerCase();
@@ -130,11 +178,17 @@ function render(){
   .forEach(t=>{
    if(t.type==='income') balance+=t.amount; else {balance-=t.amount;expenses+=t.amount;}
    const tr=document.createElement('tr');
-  tr.innerHTML=`<td>${t.date}</td><td>${t.description}</td><td>${t.category}</td><td>${t.type==='income'?'+':'-'}${t.amount}</td><td><button data-id="${t.id}" class="edit">Sửa</button><button data-id="${t.id}" class="del">Xóa</button></td>`;
+  tr.innerHTML=`<td>${t.date}</td><td>${t.description}</td><td>${t.category}</td><td>${t.type==='income'?'+':'-'}${formatVND(t.amount)}</td><td><button data-id="${t.id}" class="edit">Sửa</button><button data-id="${t.id}" class="del">Xóa</button></td>`;
    tbody.appendChild(tr);
   });
- document.getElementById('balance').textContent=balance.toFixed(2);
- if(user.budget && expenses>user.budget) alert('Vượt quá ngân sách!');
+ document.getElementById('balance').textContent=formatVND(balance);
+ if(user.budget && expenses>user.budget){
+  budgetWarning.textContent='Cảnh báo: đã vượt quá ngân sách!';
+  budgetWarning.classList.remove('hidden');
+ }else{
+  budgetWarning.classList.add('hidden');
+  budgetWarning.textContent='';
+ }
 
  tbody.querySelectorAll('.del').forEach(btn=>btn.onclick=e=>{
   const id=Number(e.target.dataset.id);
@@ -151,26 +205,29 @@ function render(){
   document.getElementById('category').value=t.category;
   window.scrollTo(0,0);
  });
- updateCharts(user.transactions);
 }
 
-let categoryChart,timeChart;
-function updateCharts(data){
- const ctx1=document.getElementById('category-chart');
- const ctx2=document.getElementById('time-chart');
- const byCat={}; const byTime={};
- data.forEach(t=>{
-  if(t.type==='expense'){byCat[t.category]=(byCat[t.category]||0)+t.amount;}
-  const month=t.date.slice(0,7); // YYYY-MM
-  byTime[month]=(byTime[month]||0)+(t.type==='income'?t.amount:-t.amount);
+function renderExpenseChart(){
+ const ctx=document.getElementById('expense-chart');
+ if(!ctx) return;
+ if(expenseChart) expenseChart.destroy();
+ expenseChart=new Chart(ctx,{
+  type:'pie',
+  data:{
+   labels:['Ăn uống','Đi lại','Học tập','Giải trí'],
+   datasets:[{
+    data:[1500000,500000,800000,300000],
+    backgroundColor:['#FF6384','#36A2EB','#FFCE56','#4BC0C0']
+   }]
+  },
+  options:{
+   responsive:true,
+   plugins:{
+    legend:{position:'bottom'},
+    tooltip:{callbacks:{label:c=>`${c.label}: ${formatVND(c.parsed)}`}}
+   }
+  }
  });
- const catLabels=Object.keys(byCat); const catValues=Object.values(byCat);
- const timeLabels=Object.keys(byTime).sort();
- const timeValues=timeLabels.map(l=>byTime[l]);
- if(categoryChart) categoryChart.destroy();
- if(timeChart) timeChart.destroy();
- categoryChart=new Chart(ctx1,{type:'pie',data:{labels:catLabels,datasets:[{data:catValues,backgroundColor:['#667eea','#764ba2','#ffc107','#28a745','#dc3545','#17a2b8']} ]}});
- timeChart=new Chart(ctx2,{type:'bar',data:{labels:timeLabels,datasets:[{label:'Số dư',data:timeValues,backgroundColor:'#667eea'}]}});
 }
 
 // Auto login
