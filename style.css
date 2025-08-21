@@ -22,6 +22,8 @@ header {
   background: linear-gradient(135deg,var(--primary),var(--secondary));
   color: #fff;
 }
+.header-controls {display:flex;align-items:center;gap:.5rem;}
+.header-controls a {background:#fff;color:var(--text);padding:.5rem;border-radius:4px;text-decoration:none;}
 .card {
   background: rgba(255,255,255,0.7);
   backdrop-filter: blur(5px);
@@ -32,6 +34,7 @@ header {
 }
 body.dark .card {background: rgba(0,0,0,0.4);}
 .hidden {display:none;}
+.warning {color:red;font-weight:bold;}
 input, select, button {
   margin: .3rem 0;
   padding:.5rem;
@@ -44,6 +47,8 @@ button {
   cursor:pointer;
 }
 button:hover {opacity:.9;}
+.new-category{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;}
+.new-category input,.new-category select{flex:1;}
 @media (max-width:600px){
   table {font-size: .8rem;}
   header {flex-direction: column;}
