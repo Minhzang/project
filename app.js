@@ -9,12 +9,8 @@ function hash(p){return btoa(p);}
 const authSection = document.getElementById('auth-section');
 const appSection = document.getElementById('app');
 const budgetWarning = document.getElementById('budget-warning');
-const accountDropdown = document.getElementById('account-dropdown');
-const accountName = document.getElementById('account-name');
-const accountEmail = document.getElementById('account-email');
-
-function showApp(){authSection.classList.add('hidden');appSection.classList.remove('hidden');render();accountDropdown.classList.add('hidden');}
-function showAuth(){authSection.classList.remove('hidden');appSection.classList.add('hidden');accountDropdown.classList.add('hidden');}
+function showApp(){authSection.classList.add('hidden');appSection.classList.remove('hidden');render();}
+function showAuth(){authSection.classList.remove('hidden');appSection.classList.add('hidden');}
 
 // Registration
  document.getElementById('register-form').addEventListener('submit',e=>{
@@ -73,21 +69,7 @@ document.getElementById('reset-form').addEventListener('submit',e=>{
 });
 
 // Logout
-document.getElementById('account-btn').onclick=()=>accountDropdown.classList.toggle('hidden');
-document.getElementById('account-forgot').onclick=()=>{
- accountDropdown.classList.add('hidden');
- showAuth();
- document.getElementById('reset').classList.remove('hidden');
- document.getElementById('reset-email').value=currentUser||'';
-};
-
-document.getElementById('logout').onclick=()=>{
- accountDropdown.classList.add('hidden');
- sessionStorage.removeItem('currentUser');
- currentUser=null;
- if(window.google&&google.accounts&&google.accounts.id){google.accounts.id.disableAutoSelect();}
- showAuth();
-};
+// Account link handled via separate page
 
 // Theme
 document.getElementById('toggle-theme').onclick=()=>{document.body.classList.toggle('dark');};
@@ -149,8 +131,6 @@ document.getElementById('import-file').addEventListener('change',e=>{
 function render(){
  if(!currentUser)return;
  const user=users.find(u=>u.email===currentUser);
- accountName.textContent='Họ tên: '+(user.name||'');
- accountEmail.textContent='Email: '+user.email;
  document.getElementById('budget-display').textContent=user.budget;
  const tbody=document.getElementById('transaction-table');
  tbody.innerHTML='';
